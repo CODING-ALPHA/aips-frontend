@@ -59,17 +59,31 @@ export default function Home() {
 
   const timeGridRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
+  const scrollToCurrentTime = () => {
     if (viewMode === 'Day' || viewMode === '3-Day' || viewMode === 'Week') {
       const now = new Date();
       const nowHour = now.getHours() + now.getMinutes() / 60;
       let targetY = (nowHour - 1) * 100;
       if (targetY < 0) targetY = 0;
       
+      // Try scrolling immediately
+      timeGridRef.current?.scrollTo({ y: targetY, animated: false });
+      
+      // Retry multiple times to ensure scroll occurs after layout is complete on web/mobile
       setTimeout(() => {
         timeGridRef.current?.scrollTo({ y: targetY, animated: false });
       }, 50);
+      setTimeout(() => {
+        timeGridRef.current?.scrollTo({ y: targetY, animated: false });
+      }, 150);
+      setTimeout(() => {
+        timeGridRef.current?.scrollTo({ y: targetY, animated: false });
+      }, 350);
     }
+  };
+
+  useEffect(() => {
+    scrollToCurrentTime();
   }, [viewMode, viewDate]);
 
   useEffect(() => {
@@ -658,7 +672,12 @@ export default function Home() {
           </View>
         ) : (
           /* Day / 3-Day / Week — scrollable time grid */
-          <ScrollView ref={timeGridRef} className="flex-1 pl-1 md:pl-4 pr-2" contentContainerStyle={{ paddingBottom: 32 }}>
+          <ScrollView 
+            ref={timeGridRef} 
+            className="flex-1 pl-1 md:pl-4 pr-2" 
+            contentContainerStyle={{ paddingBottom: 32 }}
+            onLayout={scrollToCurrentTime}
+          >
             <View className="flex-row h-[2400px] relative mt-4">
 
               {/* Time labels */}
