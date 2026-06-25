@@ -33,6 +33,7 @@ export default function EditTask() {
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
     if (!existingTask) router.replace('/(tabs)/tasks');
@@ -61,6 +62,8 @@ export default function EditTask() {
   const handleSubmit = async () => {
     if (!validate() || !id) return;
     setIsSubmitting(true);
+    setFormErrors({});
+    setSuccessMsg('');
     try {
       await updateTask(id, {
         title: title.trim(),
@@ -68,7 +71,10 @@ export default function EditTask() {
         priority,
         deadline: deadline.toISOString(),
       });
-      router.back();
+      setSuccessMsg('Task updated successfully!');
+      setTimeout(() => {
+        router.back();
+      }, 1000);
     } catch (err: any) {
       setFormErrors({ form: err.message || 'Failed to update task' });
     } finally {
@@ -188,11 +194,23 @@ export default function EditTask() {
             </View>
           </View>
 
-          {formErrors?.form && <Text className="text-red-500 text-center mb-4 font-bold">{formErrors.form}</Text>}
+          {formErrors?.form && (
+            <View className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 flex-row items-center gap-3">
+              <Feather name="alert-circle" size={18} color="#ef4444" />
+              <Text className="text-red-800 font-bold flex-1 text-xs">{formErrors.form}</Text>
+            </View>
+          )}
+
+          {successMsg ? (
+            <View className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4 flex-row items-center gap-3">
+              <Feather name="check-circle" size={18} color="#10b981" />
+              <Text className="text-emerald-800 font-bold flex-1 text-xs">{successMsg}</Text>
+            </View>
+          ) : null}
 
           <TouchableOpacity 
             onPress={handleSubmit} 
-            disabled={isSubmitting}
+            disabled={isSubmitting || !!successMsg}
             className="bg-black py-5 rounded-[24px] items-center justify-center flex-row gap-3 shadow-lg"
           >
             {isSubmitting ? <ActivityIndicator color={NEON} /> : <Feather name="check" size={18} color={NEON} />}

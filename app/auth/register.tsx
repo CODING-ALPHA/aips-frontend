@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
+import { Feather } from '@expo/vector-icons';
 
 export default function Register() {
   const insets = useSafeAreaInsets();
@@ -11,11 +12,13 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const register = useAuthStore(state => state.register);
 
   const handleRegister = async () => {
     setErrorMsg('');
+    setSuccessMsg('');
     if (!name || !email || !password || !confirmPassword) {
       setErrorMsg('All fields are required');
       return;
@@ -37,7 +40,10 @@ export default function Register() {
     setIsLoading(true);
     try {
       await register(name, email, password);
-      router.replace('/(tabs)/');
+      setSuccessMsg('Registration successful! Welcome to AIPS.');
+      setTimeout(() => {
+        router.replace('/(tabs)/');
+      }, 1200);
     } catch (err: any) {
       setErrorMsg(err.response?.data?.message || err.message || 'Registration failed. Please try again.');
     } finally {
@@ -107,13 +113,23 @@ export default function Register() {
         </View>
 
         {errorMsg ? (
-          <Text className="text-red-500 mb-4 text-center">{errorMsg}</Text>
+          <View className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 flex-row items-center gap-3">
+            <Feather name="alert-circle" size={20} color="#ef4444" />
+            <Text className="text-red-800 font-medium flex-1 text-sm">{errorMsg}</Text>
+          </View>
+        ) : null}
+
+        {successMsg ? (
+          <View className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4 flex-row items-center gap-3">
+            <Feather name="check-circle" size={20} color="#10b981" />
+            <Text className="text-emerald-800 font-medium flex-1 text-sm">{successMsg}</Text>
+          </View>
         ) : null}
 
         <TouchableOpacity 
           className="w-full bg-[#6C63FF] p-4 rounded-lg items-center flex-row justify-center"
           onPress={handleRegister}
-          disabled={isLoading}
+          disabled={isLoading || !!successMsg}
         >
           {isLoading ? (
             <ActivityIndicator color="#ffffff" className="mr-2" />

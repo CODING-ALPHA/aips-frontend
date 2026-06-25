@@ -28,6 +28,8 @@ export default function Profile() {
   const [showEndPicker, setShowEndPicker]   = useState(false);
   const [isLoading, setIsLoading]           = useState(true);
   const [isSaving, setIsSaving]             = useState(false);
+  const [successMsg, setSuccessMsg]         = useState('');
+  const [errorMsg, setErrorMsg]             = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -53,6 +55,8 @@ export default function Profile() {
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSuccessMsg('');
+    setErrorMsg('');
     try {
       const startStr = `${workStart.getHours().toString().padStart(2, '0')}:${workStart.getMinutes().toString().padStart(2, '0')}`;
       const endStr   = `${workEnd.getHours().toString().padStart(2, '0')}:${workEnd.getMinutes().toString().padStart(2, '0')}`;
@@ -68,9 +72,11 @@ export default function Profile() {
       }
 
       await loadUser();
-      Alert.alert('Success', 'Profile updated!');
+      setSuccessMsg('Profile updated successfully!');
+      setTimeout(() => setSuccessMsg(''), 4000);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update profile');
+      setErrorMsg(e.message || 'Failed to update profile');
+      setTimeout(() => setErrorMsg(''), 5000);
     } finally {
       setIsSaving(false);
     }
@@ -121,6 +127,19 @@ export default function Profile() {
         </View>
 
         <View className="px-6">
+          {successMsg ? (
+            <View className="bg-emerald-50 border border-emerald-200 rounded-[24px] p-4 mb-6 flex-row items-center gap-3">
+              <Feather name="check-circle" size={20} color="#10b981" />
+              <Text className="text-emerald-800 font-semibold flex-1 text-sm">{successMsg}</Text>
+            </View>
+          ) : null}
+
+          {errorMsg ? (
+            <View className="bg-red-50 border border-red-200 rounded-[24px] p-4 mb-6 flex-row items-center gap-3">
+              <Feather name="alert-circle" size={20} color="#ef4444" />
+              <Text className="text-red-800 font-semibold flex-1 text-sm">{errorMsg}</Text>
+            </View>
+          ) : null}
           
           <SectionLabel>Account Details</SectionLabel>
           <View className="bg-white rounded-[28px] overflow-hidden border border-gray-100 shadow-sm mb-6">
