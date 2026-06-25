@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { useTaskStore } from '../../store/taskStore';
 import { useAuthStore } from '../../store/authStore';
 import { useScheduleStore } from '../../store/scheduleStore';
@@ -505,6 +506,13 @@ export default function Home() {
                     </View>
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#111', marginBottom: 4 }}>No upcoming events</Text>
                     <Text style={{ fontSize: 13, color: '#9ca3af' }}>Add tasks to see them here.</Text>
+                    <TouchableOpacity
+                      onPress={() => router.push('/(tabs)/tasks/add')}
+                      style={{ marginTop: 20, backgroundColor: 'black', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 3 }}
+                    >
+                      <Feather name="plus" size={16} color="#d4f964" />
+                      <Text style={{ color: 'white', fontWeight: '700', fontSize: 14 }}>Add Task</Text>
+                    </TouchableOpacity>
                   </View>
                 );
               }
