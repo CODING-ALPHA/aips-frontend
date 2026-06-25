@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, Text, TouchableOpacity, Alert, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Animated, Platform } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -35,10 +35,16 @@ export function TaskCard({ task }: TaskCardProps) {
 
   const handleDelete = () => {
     swipeableRef.current?.close();
-    Alert.alert('Delete Task', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteTask(task._id) },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure?')) {
+        deleteTask(task._id);
+      }
+    } else {
+      Alert.alert('Delete Task', 'Are you sure?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteTask(task._id) },
+      ]);
+    }
   };
 
   const renderRightActions = () => (

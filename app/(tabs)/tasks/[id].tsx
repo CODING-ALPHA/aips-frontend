@@ -84,20 +84,27 @@ export default function EditTask() {
 
   const handleDelete = () => {
     if (!id) return;
-    Alert.alert('Delete Task', 'Are you sure you want to delete this task?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: async () => {
-          setIsDeleting(true);
-          try {
-            await deleteTask(id);
-            router.replace('/(tabs)/tasks');
-          } catch {
-            setIsDeleting(false);
-          }
-        },
-      },
-    ]);
+
+    const performDelete = async () => {
+      setIsDeleting(true);
+      try {
+        await deleteTask(id);
+        router.replace('/(tabs)/tasks');
+      } catch {
+        setIsDeleting(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to delete this task?')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert('Delete Task', 'Are you sure you want to delete this task?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: performDelete },
+      ]);
+    }
   };
 
   return (
