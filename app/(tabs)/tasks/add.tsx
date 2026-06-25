@@ -4,8 +4,6 @@ import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useTaskStore } from '../../../store/taskStore';
 import { TaskPriority } from '../../../lib/types';
 import { PRIORITY_COLORS } from '../../../lib/constants';
@@ -19,12 +17,22 @@ function fmt12(date: Date) {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
-function toTimeInput(d: Date) {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+function fmtDateTimeDisplay(date: Date) {
+  const today = new Date();
+  const isToday = date.toDateString() === today.toDateString();
+  if (isToday) return fmt12(date);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + fmt12(date);
 }
 
 function toDateTimeLocal(d: Date) {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function defaultDeadline() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(17, 0, 0, 0);
+  return d;
 }
 
 export default function AddTask() {
@@ -36,12 +44,7 @@ export default function AddTask() {
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [description, setDescription] = useState('');
 
-  const [deadline, setDeadline] = useState<Date>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(17, 0, 0, 0);
-    return d;
-  });
+  const [deadline, setDeadline] = useState<Date>(defaultDeadline);
 
   const [startTime, setStartTime] = useState<Date>(() => {
     const d = new Date();
@@ -55,7 +58,6 @@ export default function AddTask() {
     return d;
   });
 
-  // Use a ref so the picker onChange always sees the current target
   const pickerTargetRef = useRef<PickerTarget>(null);
   const [pickerTarget, _setPickerTarget] = useState<PickerTarget>(null);
   const setPickerTarget = (t: PickerTarget) => {
@@ -67,7 +69,6 @@ export default function AddTask() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Picker value shown in the picker UI (may differ from committed state while scrolling)
   const [pickerValue, setPickerValue] = useState<Date>(new Date());
 
   const openPicker = (target: PickerTarget) => {
@@ -79,9 +80,8 @@ export default function AddTask() {
   const commitPickerValue = (date: Date) => {
     const target = pickerTargetRef.current;
     if (target === 'start') {
-      setStartTime(date);
-      // Shift end time by same duration
       const gap = endTime.getTime() - startTime.getTime();
+      setStartTime(date);
       const newEnd = new Date(date.getTime() + gap);
       setEndTime(newEnd);
       setDuration(String(Math.max(1, Math.round(gap / 60000))));
@@ -101,7 +101,6 @@ export default function AddTask() {
       commitPickerValue(selected);
       setPickerTarget(null);
     }
-    // iOS: user scrolls spinner → update pickerValue live, commit on Done
   };
 
   const handleIosDone = () => {
@@ -109,12 +108,35 @@ export default function AddTask() {
     setPickerTarget(null);
   };
 
+  // Fix #1: typing duration now drives endTime
+  const handleDurationChange = (text: string) => {
+    setDuration(text);
+    const mins = parseInt(text, 10);
+    if (!isNaN(mins) && mins > 0) {
+      setEndTime(new Date(startTime.getTime() + mins * 60000));
+    }
+  };
+
   const validate = () => {
     const errors: Record<string, string> = {};
     if (!title.trim()) errors.title = 'Required';
+
     const mins = parseInt(duration, 10);
-    if (!duration || isNaN(mins) || mins <= 0) errors.duration = 'Required';
+    if (!duration || isNaN(mins) || mins <= 0) {
+      errors.duration = 'Required';
+    } else if (mins > 480) {
+      // Fix #2: enforce backend's 480-minute cap on the frontend
+      errors.duration = 'Max 480 minutes (8 hours)';
+    }
+
     if (endTime <= startTime) errors.time = 'End time must be after start time';
+
+    // Fix #5: deadline must be in the future
+    if (deadline <= new Date()) errors.deadline = 'Deadline must be in the future';
+
+    // Fix #6: scheduled start must precede deadline
+    if (startTime >= deadline) errors.schedule = 'Scheduled start must be before the deadline';
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -134,7 +156,9 @@ export default function AddTask() {
       });
       setShowSuccessModal(true);
     } catch (err: any) {
-      setFormErrors({ form: err.message || 'Failed to create task' });
+      // Fix #7: NestJS validation returns message as string[]
+      const msg = err.response?.data?.message;
+      setFormErrors({ form: Array.isArray(msg) ? msg.join(', ') : (msg || err.message || 'Failed to create task') });
     } finally {
       setIsSubmitting(false);
     }
@@ -181,13 +205,12 @@ export default function AddTask() {
             {formErrors.title && <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700', marginTop: 6, marginLeft: 4 }}>{formErrors.title}</Text>}
           </View>
 
-          {/* START & END TIME */}
+          {/* START & END TIME — Fix #3: full datetime, not time-only */}
           <View style={{ marginBottom: 20 }}>
             <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'black', marginBottom: 10, marginLeft: 4 }}>Scheduled Time</Text>
             <View style={{ backgroundColor: 'white', borderRadius: 32, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 28, paddingVertical: 24 }}>
 
               {Platform.OS === 'web' ? (
-                /* ── WEB: native <input type="time"> rendered directly ── */
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 9, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: '#9CA3AF', marginBottom: 6 }}>Start</Text>
@@ -196,20 +219,17 @@ export default function AddTask() {
                         <Feather name="play" size={13} color="black" />
                       </View>
                       <input
-                        type="time"
-                        value={toTimeInput(startTime)}
+                        type="datetime-local"
+                        value={toDateTimeLocal(startTime)}
                         onChange={e => {
                           if (!e.target.value) return;
-                          const [h, m] = e.target.value.split(':').map(Number);
-                          const d = new Date(startTime);
-                          d.setHours(h, m, 0, 0);
+                          const d = new Date(e.target.value);
                           const gap = endTime.getTime() - startTime.getTime();
                           setStartTime(d);
-                          const newEnd = new Date(d.getTime() + gap);
-                          setEndTime(newEnd);
+                          setEndTime(new Date(d.getTime() + gap));
                           setDuration(String(Math.max(1, Math.round(gap / 60000))));
                         }}
-                        style={{ fontSize: 18, fontWeight: '900', border: 'none', outline: 'none', background: 'transparent', cursor: 'pointer', color: 'black' } as any}
+                        style={{ fontSize: 13, fontWeight: '900', border: 'none', outline: 'none', background: 'transparent', cursor: 'pointer', color: 'black' } as any}
                       />
                     </View>
                   </View>
@@ -223,24 +243,21 @@ export default function AddTask() {
                         <Feather name="square" size={13} color="black" />
                       </View>
                       <input
-                        type="time"
-                        value={toTimeInput(endTime)}
+                        type="datetime-local"
+                        value={toDateTimeLocal(endTime)}
                         onChange={e => {
                           if (!e.target.value) return;
-                          const [h, m] = e.target.value.split(':').map(Number);
-                          const d = new Date(endTime);
-                          d.setHours(h, m, 0, 0);
+                          const d = new Date(e.target.value);
                           setEndTime(d);
                           const mins = Math.round((d.getTime() - startTime.getTime()) / 60000);
                           if (mins > 0) setDuration(String(mins));
                         }}
-                        style={{ fontSize: 18, fontWeight: '900', border: 'none', outline: 'none', background: 'transparent', cursor: 'pointer', color: 'black' } as any}
+                        style={{ fontSize: 13, fontWeight: '900', border: 'none', outline: 'none', background: 'transparent', cursor: 'pointer', color: 'black' } as any}
                       />
                     </View>
                   </View>
                 </View>
               ) : (
-                /* ── NATIVE: tap to open picker modal ── */
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                   <TouchableOpacity onPress={() => openPicker('start')} style={{ flex: 1, paddingRight: 12 }} activeOpacity={0.7}>
                     <Text style={{ fontSize: 9, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: '#9CA3AF', marginBottom: 8 }}>Start</Text>
@@ -249,7 +266,7 @@ export default function AddTask() {
                         <Feather name="play" size={14} color="black" />
                       </View>
                       <View>
-                        <Text style={{ fontSize: 20, fontWeight: '900', color: 'black' }}>{fmt12(startTime)}</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '900', color: 'black' }}>{fmtDateTimeDisplay(startTime)}</Text>
                         <Text style={{ fontSize: 9, color: '#9CA3AF', fontWeight: '600', marginTop: 1 }}>tap to change</Text>
                       </View>
                     </View>
@@ -264,7 +281,7 @@ export default function AddTask() {
                         <Feather name="square" size={14} color="black" />
                       </View>
                       <View>
-                        <Text style={{ fontSize: 20, fontWeight: '900', color: 'black' }}>{fmt12(endTime)}</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '900', color: 'black' }}>{fmtDateTimeDisplay(endTime)}</Text>
                         <Text style={{ fontSize: 9, color: '#9CA3AF', fontWeight: '600', marginTop: 1 }}>tap to change</Text>
                       </View>
                     </View>
@@ -280,6 +297,7 @@ export default function AddTask() {
               )}
             </View>
             {formErrors.time && <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700', marginTop: 6, marginLeft: 4 }}>{formErrors.time}</Text>}
+            {formErrors.schedule && <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700', marginTop: 4, marginLeft: 4 }}>{formErrors.schedule}</Text>}
           </View>
 
           {/* DURATION + DEADLINE */}
@@ -297,7 +315,7 @@ export default function AddTask() {
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                   value={duration}
-                  onChangeText={setDuration}
+                  onChangeText={handleDurationChange}
                   maxLength={3}
                 />
                 <Text style={{ color: '#9CA3AF', fontSize: 11, fontWeight: '700' }}>min</Text>
@@ -339,6 +357,7 @@ export default function AddTask() {
                   </View>
                 </TouchableOpacity>
               )}
+              {formErrors.deadline && <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700', marginTop: 6, marginLeft: 4 }}>{formErrors.deadline}</Text>}
             </View>
           </View>
 
@@ -396,17 +415,17 @@ export default function AddTask() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* ANDROID PICKER — appears inline when triggered */}
+      {/* ANDROID PICKER — Fix #3: mode is always datetime */}
       {Platform.OS === 'android' && pickerTarget !== null && (
         <DateTimePicker
           value={pickerValue}
-          mode={pickerTarget === 'deadline' ? 'datetime' : 'time'}
+          mode="datetime"
           display="default"
           onChange={handlePickerChange}
         />
       )}
 
-      {/* iOS PICKER MODAL */}
+      {/* iOS PICKER MODAL — Fix #3: mode is always datetime */}
       {Platform.OS === 'ios' && pickerTarget !== null && (
         <Modal transparent animationType="slide" onRequestClose={() => setPickerTarget(null)}>
           <TouchableOpacity
@@ -428,7 +447,7 @@ export default function AddTask() {
             </View>
             <DateTimePicker
               value={pickerValue}
-              mode={pickerTarget === 'deadline' ? 'datetime' : 'time'}
+              mode="datetime"
               display="spinner"
               textColor="black"
               onChange={handlePickerChange}
@@ -457,6 +476,7 @@ export default function AddTask() {
             >
               <Text style={{ color: 'white', fontWeight: '900', textTransform: 'uppercase', letterSpacing: 2, fontSize: 13 }}>View Schedule</Text>
             </TouchableOpacity>
+            {/* Fix #4: Add Another also resets deadline */}
             <TouchableOpacity
               onPress={() => {
                 setShowSuccessModal(false);
@@ -469,6 +489,7 @@ export default function AddTask() {
                 const e = new Date();
                 e.setHours(10, 0, 0, 0);
                 setEndTime(e);
+                setDeadline(defaultDeadline());
               }}
             >
               <Text style={{ color: '#9CA3AF', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2, fontSize: 11 }}>Add Another</Text>
