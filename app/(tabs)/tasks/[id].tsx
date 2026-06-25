@@ -22,14 +22,6 @@ export default function EditTask() {
   const [title, setTitle] = useState(existingTask?.title || '');
   const [duration, setDuration] = useState(existingTask?.durationMinutes?.toString() || '');
   const [priority, setPriority] = useState<TaskPriority>(existingTask?.priority || 'medium');
-  const [deadline, setDeadline] = useState<Date>(() => {
-    if (existingTask?.deadline) return new Date(existingTask.deadline);
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(17, 0, 0, 0);
-    return d;
-  });
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -65,11 +57,13 @@ export default function EditTask() {
     setFormErrors({});
     setSuccessMsg('');
     try {
+      const startRef = existingTask.scheduledStart ? new Date(existingTask.scheduledStart) : new Date();
+      const computedDeadline = new Date(startRef.getTime() + 7 * 24 * 60 * 60 * 1000);
       await updateTask(id, {
         title: title.trim(),
         durationMinutes: parseInt(duration, 10),
         priority,
-        deadline: deadline.toISOString(),
+        deadline: computedDeadline.toISOString(),
       });
       setSuccessMsg('Task updated successfully!');
       setTimeout(() => {
@@ -149,37 +143,17 @@ export default function EditTask() {
               {formErrors?.title && <Text className="text-red-500 text-[10px] mt-1 font-bold">{formErrors.title}</Text>}
             </View>
 
-            <View className="flex-col md:flex-row gap-4 mb-6">
-              <View className="flex-1">
-                <FieldLabel>Duration (min)</FieldLabel>
-                <TextInput
-                  className="text-lg font-bold text-black p-0"
-                  placeholder="e.g. 60"
-                  placeholderTextColor="#d1d5db"
-                  keyboardType="numeric"
-                   value={duration}
-                  onChangeText={(t) => setDuration(t.replace(/[^0-9]/g, ''))}
-                />
-                {formErrors?.duration && <Text className="text-red-500 text-[10px] mt-1 font-bold">{formErrors.duration}</Text>}
-              </View>
-              <TouchableOpacity onPress={() => setShowDatePicker(true)} className="flex-1 relative">
-                <FieldLabel>Deadline</FieldLabel>
-                <Text className="text-lg font-bold text-black">
-                  {deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </Text>
-                {Platform.OS === 'web' && (
-                  <input 
-                    type="datetime-local" 
-                    value={new Date(deadline.getTime() - deadline.getTimezoneOffset() * 60000).toISOString().slice(0,16)}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setDeadline(new Date(e.target.value));
-                      }
-                    }}
-                    style={{ position: 'absolute', opacity: 0, top: 0, bottom: 0, left: 0, right: 0, width: '100%', cursor: 'pointer' } as any}
-                  />
-                )}
-              </TouchableOpacity>
+            <View className="mb-6">
+              <FieldLabel>Duration (min)</FieldLabel>
+              <TextInput
+                className="text-lg font-bold text-black p-0"
+                placeholder="e.g. 60"
+                placeholderTextColor="#d1d5db"
+                keyboardType="numeric"
+                value={duration}
+                onChangeText={(t) => setDuration(t.replace(/[^0-9]/g, ''))}
+              />
+              {formErrors?.duration && <Text className="text-red-500 text-[10px] mt-1 font-bold">{formErrors.duration}</Text>}
             </View>
 
             <View>
@@ -226,33 +200,6 @@ export default function EditTask() {
 
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {Platform.OS === 'android' && showDatePicker && (
-        <DateTimePicker
-          value={deadline} mode="datetime" display="default"
-          onChange={(ev, d) => { setShowDatePicker(false); if (d) setDeadline(d); }}
-        />
-      )}
-
-      {Platform.OS === 'ios' && showDatePicker && (
-        <Modal transparent animationType="slide">
-          <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <View className="bg-white rounded-t-3xl p-6 pb-10 shadow-2xl">
-              <View className="flex-row justify-between items-center mb-6">
-                <Text className="text-black font-black text-lg">Select Deadline</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(false)} className="bg-black px-6 py-3 rounded-2xl">
-                  <Text className="text-white font-bold uppercase tracking-widest text-xs">Done</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={deadline} mode="datetime" display="spinner" textColor="black"
-                onChange={(ev, d) => { if (d) setDeadline(d); }}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
-
     </View>
   );
 }

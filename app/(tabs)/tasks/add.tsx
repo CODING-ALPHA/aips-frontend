@@ -44,8 +44,6 @@ export default function AddTask() {
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [description, setDescription] = useState('');
 
-  const [deadline, setDeadline] = useState<Date>(defaultDeadline);
-
   const [startTime, setStartTime] = useState<Date>(() => {
     const d = new Date();
     d.setHours(9, 0, 0, 0);
@@ -72,7 +70,7 @@ export default function AddTask() {
   const [pickerValue, setPickerValue] = useState<Date>(new Date());
 
   const openPicker = (target: PickerTarget) => {
-    const val = target === 'start' ? startTime : target === 'end' ? endTime : deadline;
+    const val = target === 'start' ? startTime : endTime;
     setPickerValue(new Date(val));
     setPickerTarget(target);
   };
@@ -89,8 +87,6 @@ export default function AddTask() {
       setEndTime(date);
       const mins = Math.round((date.getTime() - startTime.getTime()) / 60000);
       if (mins > 0) setDuration(String(mins));
-    } else if (target === 'deadline') {
-      setDeadline(date);
     }
   };
 
@@ -131,12 +127,6 @@ export default function AddTask() {
 
     if (endTime <= startTime) errors.time = 'End time must be after start time';
 
-    // Fix #5: deadline must be in the future
-    if (deadline <= new Date()) errors.deadline = 'Deadline must be in the future';
-
-    // Fix #6: scheduled start must precede deadline
-    if (startTime >= deadline) errors.schedule = 'Scheduled start must be before the deadline';
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -145,11 +135,12 @@ export default function AddTask() {
     if (!validate()) return;
     setIsSubmitting(true);
     try {
+      const computedDeadline = new Date(startTime.getTime() + 7 * 24 * 60 * 60 * 1000);
       await addTask({
         title: title.trim(),
         durationMinutes: parseInt(duration, 10),
         priority,
-        deadline: deadline.toISOString(),
+        deadline: computedDeadline.toISOString(),
         scheduledStart: startTime.toISOString(),
         scheduledEnd: endTime.toISOString(),
         ...(description.trim() ? { description: description.trim() } : {}),
@@ -300,65 +291,25 @@ export default function AddTask() {
             {formErrors.schedule && <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700', marginTop: 4, marginLeft: 4 }}>{formErrors.schedule}</Text>}
           </View>
 
-          {/* DURATION + DEADLINE */}
-          <View style={{ flexDirection: 'row', gap: 14, marginBottom: 20 }}>
-            {/* Duration */}
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'black', marginBottom: 10, marginLeft: 4 }}>Duration</Text>
-              <View style={{ backgroundColor: 'white', borderRadius: 32, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 20, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ width: 32, height: 32, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
-                  <Feather name="clock" size={14} color="black" />
-                </View>
-                <TextInput
-                  style={[inputStyle, { fontSize: 20, fontWeight: '900', color: 'black', padding: 0, flex: 1 }]}
-                  placeholder="60"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  value={duration}
-                  onChangeText={handleDurationChange}
-                  maxLength={3}
-                />
-                <Text style={{ color: '#9CA3AF', fontSize: 11, fontWeight: '700' }}>min</Text>
+          {/* DURATION */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'black', marginBottom: 10, marginLeft: 4 }}>Duration</Text>
+            <View style={{ backgroundColor: 'white', borderRadius: 32, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 20, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 32, height: 32, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="clock" size={14} color="black" />
               </View>
-              {formErrors.duration && <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700', marginTop: 6, marginLeft: 4 }}>{formErrors.duration}</Text>}
+              <TextInput
+                style={[inputStyle, { fontSize: 20, fontWeight: '900', color: 'black', padding: 0, flex: 1 }]}
+                placeholder="60"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="numeric"
+                value={duration}
+                onChangeText={handleDurationChange}
+                maxLength={3}
+              />
+              <Text style={{ color: '#9CA3AF', fontSize: 11, fontWeight: '700' }}>min</Text>
             </View>
-
-            {/* Deadline */}
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'black', marginBottom: 10, marginLeft: 4 }}>Deadline</Text>
-              {Platform.OS === 'web' ? (
-                <View style={{ backgroundColor: 'white', borderRadius: 32, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 20, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ width: 32, height: 32, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
-                    <Feather name="calendar" size={14} color="black" />
-                  </View>
-                  <input
-                    type="datetime-local"
-                    value={toDateTimeLocal(deadline)}
-                    onChange={e => { if (e.target.value) setDeadline(new Date(e.target.value)); }}
-                    style={{ fontSize: 13, fontWeight: '700', border: 'none', outline: 'none', background: 'transparent', cursor: 'pointer', color: 'black', flex: 1 } as any}
-                  />
-                </View>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => openPicker('deadline')}
-                  activeOpacity={0.7}
-                  style={{ backgroundColor: 'white', borderRadius: 32, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 20, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', gap: 10 }}
-                >
-                  <View style={{ width: 32, height: 32, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
-                    <Feather name="calendar" size={14} color="black" />
-                  </View>
-                  <View>
-                    <Text style={{ fontSize: 20, fontWeight: '900', color: 'black', lineHeight: 24 }}>
-                      {deadline.toLocaleDateString('en-US', { day: 'numeric' })}
-                    </Text>
-                    <Text style={{ fontSize: 9, color: '#9CA3AF', fontWeight: '600' }}>
-                      {deadline.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-              {formErrors.deadline && <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700', marginTop: 6, marginLeft: 4 }}>{formErrors.deadline}</Text>}
-            </View>
+            {formErrors.duration && <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700', marginTop: 6, marginLeft: 4 }}>{formErrors.duration}</Text>}
           </View>
 
           {/* PRIORITY */}
@@ -489,7 +440,6 @@ export default function AddTask() {
                 const e = new Date();
                 e.setHours(10, 0, 0, 0);
                 setEndTime(e);
-                setDeadline(defaultDeadline());
               }}
             >
               <Text style={{ color: '#9CA3AF', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2, fontSize: 11 }}>Add Another</Text>
