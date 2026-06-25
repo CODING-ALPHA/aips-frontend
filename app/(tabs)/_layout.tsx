@@ -85,23 +85,24 @@ export default function TabLayout() {
             activeOpacity={1}
             onPress={() => setIsSidebarOpen(false)}
             style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 40 }}
+            className="xl:hidden"
           />
         )}
 
-        {/* ── GLOBAL SIDE NAVIGATION — always overlay, never docked ─────────── */}
+        {/* ── GLOBAL SIDE NAVIGATION ─────────── */}
         <View 
           style={{ 
             paddingTop: Math.max(insets.top, 16),
             backdropFilter: 'blur(16px)' 
           } as any}
-          className={`${isSidebarOpen ? 'flex' : 'hidden'} absolute top-0 left-0 bottom-0 z-50 w-[280px] bg-white/95 pb-8 flex-col shadow-2xl border-r border-white/40`}
+          className={`${isSidebarOpen ? 'flex' : 'hidden xl:flex'} xl:relative xl:z-0 xl:shadow-none absolute top-0 left-0 bottom-0 z-50 w-[280px] bg-white/95 pb-8 flex-col shadow-2xl border-r border-white/40 xl:border-gray-150`}
         >
-          {/* Sidebar Header with Close Button — always visible */}
+          {/* Sidebar Header with Close Button — hidden on desktop */}
           <View className="flex-row items-center justify-between px-6 mb-6">
             <Text className="text-xl font-black text-black">AIPS</Text>
             <TouchableOpacity 
               onPress={() => setIsSidebarOpen(false)}
-              className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
+              className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center xl:hidden"
             >
               <Feather name="x" size={18} color="black" />
             </TouchableOpacity>

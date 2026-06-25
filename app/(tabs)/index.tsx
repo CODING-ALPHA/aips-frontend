@@ -322,7 +322,7 @@ export default function Home() {
           {/* Main Header Row */}
           <View className="flex-row items-center justify-between h-14 px-4 relative z-[9999]" style={{ zIndex: 9999 }}>
             <View className="flex-row items-center gap-6">
-              <TouchableOpacity onPress={toggleSidebar} className="p-1">
+              <TouchableOpacity onPress={toggleSidebar} className="p-1 xl:hidden">
                 <Feather name="menu" size={24} color="black" />
               </TouchableOpacity>
               <TouchableOpacity 
